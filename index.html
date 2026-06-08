@@ -465,6 +465,10 @@ body {
   gap: 10px;
   max-width: 580px;
 }
+#end-roster {
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 480px;
+}
 
 .ovr-display {
   font-family: var(--serif);
@@ -850,7 +854,7 @@ body {
   <div class="screen-inner center">
     <div id="result-headline" class="result-headline"></div>
     <div id="end-record" class="record-display"></div>
-    <div id="end-roster" class="lineup-grid" style="max-width:700px"></div>
+    <div id="end-roster" class="lineup-grid"></div>
     <div class="end-actions">
       <button class="btn-primary" onclick="copyResult()">COPY RESULT</button>
       <button class="btn-secondary" onclick="resetGame()">PLAY AGAIN</button>
