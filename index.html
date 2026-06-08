@@ -780,6 +780,22 @@
         letter-spacing: 0.04em;
       }
 
+      .game-scores {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 4px;
+        margin-top: 4px;
+        padding-top: 4px;
+        border-top: 1px solid var(--border);
+      }
+
+      .gs-chip {
+        font-size: 0.58rem;
+        font-family: var(--mono, monospace);
+        color: var(--muted);
+        letter-spacing: 0.03em;
+      }
+
       .series-log {
         background: var(--bg-card);
         border: 2px solid var(--border);
@@ -871,6 +887,26 @@
       }
       .ysb-status.eliminated {
         color: var(--muted);
+      }
+
+      .ysb-game-scores {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 3px 6px;
+        margin-top: 8px;
+      }
+
+      .ysb-gs-chip {
+        font-size: 0.62rem;
+        font-family: var(--mono, monospace);
+        letter-spacing: 0.03em;
+        color: var(--muted);
+      }
+
+      .ysb-gs-chip.ysb-gs-w {
+        color: var(--navy);
+        font-weight: 600;
       }
 
       /* bracket path dimming */
@@ -6514,7 +6550,7 @@
       function weightedShuffle(arr) {
         const a = arr.slice();
         const maxOVR = Math.max(...a.map((p) => p.ovr));
-        const weights = a.map((p) => Math.cbrt(maxOVR - p.ovr + 1));
+        const weights = a.map((p) => maxOVR - p.ovr + 1);
         const result = [];
         while (a.length > 0) {
           const idx = weightedPick(a, weights);
@@ -6658,11 +6694,13 @@
       function simSeriesInstant(a, b) {
         let aW = 0,
           bW = 0;
+        const games = [];
         while (aW < 4 && bW < 4) {
-          const { result } = simGame(a.ovr, b.ovr, true);
+          const { result, myScore, oppScore } = simGame(a.ovr, b.ovr, true);
+          games.push({ aScore: result === "W" ? myScore : oppScore, bScore: result === "W" ? oppScore : myScore });
           result === "W" ? aW++ : bW++;
         }
-        return { winner: aW === 4 ? a : b, aWins: aW, bWins: bW };
+        return { winner: aW === 4 ? a : b, aWins: aW, bWins: bW, games };
       }
 
       function initPlayerPool() {
@@ -6948,6 +6986,7 @@
         gs.paused = false;
         gs.fastForward = false;
         gs.done = false;
+        updateFFButton();
 
         document.getElementById("franchise-label").textContent =
           gameState.franchise.name.toUpperCase();
@@ -7064,11 +7103,14 @@
         }
       }
 
-      function toggleFastForward() {
-        const gs = gameState.season;
-        gs.fastForward = !gs.fastForward;
+      function updateFFButton() {
         const btn = document.getElementById("ff-btn");
-        btn.className = "btn-control" + (gs.fastForward ? " active" : "");
+        if (btn) btn.className = "btn-control" + (gameState.season.fastForward ? " active" : "");
+      }
+
+      function toggleFastForward() {
+        gameState.season.fastForward = !gameState.season.fastForward;
+        updateFFButton();
       }
 
       // ── AFTER SEASON ──
@@ -7107,6 +7149,7 @@
         document.getElementById("playoff-qualify-overlay").style.display =
           "none";
         gameState.season.fastForward = false;
+        updateFFButton();
         startPlayoffs(gameState.playoffs._confTeams);
       }
 
@@ -7165,6 +7208,7 @@
             s.winner = r.winner;
             s.aWins = r.aWins;
             s.bWins = r.bWins;
+            s.games = r.games;
           }
         });
         renderPlayoffBracket();
@@ -7220,6 +7264,7 @@
           const { result, myScore, oppScore } = simGame(aOVR, ps.b.ovr, true);
           if (result === "W") aW++;
           else bW++;
+          ps.games.push({ aScore: result === "W" ? myScore : oppScore, bScore: result === "W" ? oppScore : myScore });
           const leading = aW > bW ? ps.a.id : aW < bW ? ps.b.id : null;
           const seriesLn = leading
             ? `${leading} leads ${Math.max(aW, bW)}-${Math.min(aW, bW)}`
@@ -7255,6 +7300,7 @@
             aWins: 0,
             bWins: 0,
             winner: null,
+            games: [],
           });
         }
         gameState.playoffs.bracket[nextRi] = next;
@@ -7295,15 +7341,19 @@
                     ? `${s.aWins > s.bWins ? s.a.id : s.b.id} leads ${Math.max(s.aWins, s.bWins)}-${Math.min(s.aWins, s.bWins)}`
                     : "";
                 const pathCls = roundHasPlayer && !inv ? " off-path" : "";
+                const gameStrip = s.games && s.games.length
+                  ? `<div class="game-scores">${s.games.map((g, i) => `<span class="gs-chip">G${i + 1} ${g.aScore}–${g.bScore}</span>`).join("")}</div>`
+                  : "";
                 return `
         <div class="series-card${inv ? " player-series" : ""}${!done && inv ? " active" : ""}${pathCls}">
           <div class="series-team-row${aW ? " winner" : ""}">
-            <span>${s.a.id}</span><span class="s-wins">${s.aWins}</span>
+            <span>${s.a.id}</span><span class="s-wins">${s.aWins}${s.aWins > 0 ? "<sup>W</sup>" : ""}</span>
           </div>
           <div class="series-team-row${bW ? " winner" : ""}">
-            <span>${s.b.id}</span><span class="s-wins">${s.bWins}</span>
+            <span>${s.b.id}</span><span class="s-wins">${s.bWins}${s.bWins > 0 ? "<sup>W</sup>" : ""}</span>
           </div>
           ${status ? `<div class="series-status">${status}</div>` : ""}
+          ${gameStrip}
         </div>`;
               })
               .join("");
@@ -7367,6 +7417,15 @@
           statusText = yourW === 0 ? "Series not yet started" : `Tied ${yourW}–${oppW}`;
         }
 
+        const ysbGameStrip = latestS.games && latestS.games.length
+          ? `<div class="ysb-game-scores">${latestS.games.map((g, i) => {
+              const yScore = isA ? g.aScore : g.bScore;
+              const oScore = isA ? g.bScore : g.aScore;
+              const cls = yScore > oScore ? "ysb-gs-w" : "ysb-gs-l";
+              return `<span class="ysb-gs-chip ${cls}">G${i + 1} ${yScore}–${oScore}</span>`;
+            }).join("")}</div>`
+          : "";
+
         bar.style.display = "block";
         bar.innerHTML = `
     <div class="ysb-round">${labels[latestRi]} &mdash; Your Series</div>
@@ -7381,7 +7440,8 @@
         <div class="ysb-wins">${oppW}</div>
       </div>
     </div>
-    <div class="ysb-status ${statusCls}">${statusText}</div>`;
+    <div class="ysb-status ${statusCls}">${statusText}</div>
+    ${ysbGameStrip}`;
       }
 
       // ── END ──
